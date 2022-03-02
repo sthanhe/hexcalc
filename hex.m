@@ -40,8 +40,6 @@ classdef hex < handle
         F=0.869;     % flow characteristics (-)                       [1,1]                                                                                                          
         lambda_st=50;% heat conductivity for steel tube(W/m*K)        [1,1]
         charge       % logical value (-)                              [1,n]
-        count_a
-        err_a  
     end
     
     methods
@@ -102,7 +100,7 @@ classdef hex < handle
             if T1in > T3in % charge
                 plot(QDot,[[obj.T1left,obj.T1right(end)];[obj.T3left(1),obj.T3right]]);
             else % discharge
-                plot(Qdot,[[obj.T1left(1),obj.T1right];[obj.T3left,obj.T3right(end)]]);
+                plot(QDot,[[obj.T1left(1),obj.T1right];[obj.T3left,obj.T3right(end)]]);
             end
             legend('Wasser','Sand')
             xlabel("QDot in W")
@@ -117,33 +115,33 @@ classdef hex < handle
         function alpha_in(obj)
             x=linspace(obj.l./obj.nCells,obj.l,obj.nCells); 
             x(x<obj.di) = obj.di;
-            eta = IF97.my(obj.rho1,obj.T1); % viscosity                    
+            is2phase = IF97.is2phase(obj.rho1,obj.T1);
+            eta = IF97.my(obj.rho1(~is2phase),obj.T1(~is2phase)); % viscosity                    
             lambda1 = IF97.lambda(obj.rho1,obj.T1); %heat conductivity            
             u = 4.*obj.mDot1./(obj.rho1 .* obj.N .* obj.di.^2 .* pi); %velocity
             Pr = IF97.Pr(obj.rho1,obj.T1); % Pr-number
-            Re = u.*obj.di.*obj.rho1./eta; % Re-number   
-            is2phase = IF97.is2phase(obj.rho1,obj.T1);
+            Re = u(~is2phase).*obj.di.*obj.rho1(~is2phase)./eta; % Re-number   
+            
             alpha = NaN(size(Re));  
             
             %%% SINGL PHASE
-            % G1-3 Wärmeübertragung bei laminarer Strömung durch Rohre (S.785)
+            % G1-3 Wärmeübertragung bei laminarer Strömung durch Rohre (S.787)
             % G1-4 Wärmeübertragung bei turbulenter Strömung durch Rohre (S.788)
-            Re_si = Re(~is2phase);
             Pr_si = Pr(~is2phase);
             
-            Nu_x = NaN(1, size(Re_si,2)); %local Nu-number                 
-            lam = Re_si < 2300; % laminar flow
-            Nu_x2 = 1.302 .* (Re_si(lam).*Pr_si(lam).*obj.di(lam)./x(lam)).^(1/3);
+            Nu_x = NaN(1, size(Re,2)); %local Nu-number                 
+            lam = Re < 2300; % laminar flow
+            Nu_x2 = 1.302 .* (Re(lam).*Pr_si(lam).*obj.di(lam)./x(lam)).^(1/3);
             Nu_x(lam) = (4.364.^3 + 1 + (Nu_x2 - 1).^3).^(1./3);
-            tur = Re_si > 10^4; % turulent flow
-            Xi = (1.8 .* log10(Re_si(tur))-1.5).^(-2);
-            Nu_x(tur) = (Xi./8).*Re_si(tur).*Pr_si(tur)./(1+12.7.*(Xi./8).^(1/2).*(Pr_si(tur).^(2/3)-1)).*(1+(1/3).*(obj.di./x(tur)).^(2/3));
-            tra = 2300 < Re_si & Re_si < 10^4; %transition region                       
+            tur = Re > 10^4; % turulent flow
+            Xi = (1.8 .* log10(Re(tur))-1.5).^(-2);
+            Nu_x(tur) = (Xi./8).*Re(tur).*Pr_si(tur)./(1+12.7.*(Xi./8).^(1/2).*(Pr_si(tur).^(2/3)-1)).*(1+(1/3).*(obj.di./x(tur)).^(2/3));
+            tra = 2300 < Re & Re < 10^4; %transition region                       
             Nu_x2L = 1.302 .* (2300.*Pr_si(tra).*obj.di(tra)./x(tra)).^(1./3);
             Nu_x3L = 0.462*Pr_si(tra).^(1/3).*(2300.*obj.di(tra)./x(tra)).^(1/2);
             Nu_xL = (4.364^3+(Nu_x2L-0.6).^3+(Nu_x3L).^3).^(1/3);
             Nu_xT = (0.0308./8).*10^4.*Pr_si(tra)./(1+12.7.*(0.0308./8).^(1/2).*(Pr_si(tra).^(2./3)-1)).*(1+(1/3).*(obj.di(tra)./x(tra)).^(2/3));
-            Gamma = (Re_si(tra) - 2300)./(10.^4 -2300);
+            Gamma = (Re(tra) - 2300)./(10.^4 -2300);
             Nu_x(tra) = (1-Gamma) .* Nu_xL(tra) + Gamma .* Nu_xT(tra);
             
             alpha(~is2phase) = Nu_x .* lambda1(~is2phase) ./ obj.di; % heat transfer coefficient
@@ -173,7 +171,6 @@ classdef hex < handle
         end
             
         %% PRESSURE LOSS
-        % assumption: 
         
         function deltap_i = deltap_i(obj)
             persistent g 
@@ -181,55 +178,51 @@ classdef hex < handle
                 g = 9.80665; %acceleration of gravity          
             end
                    
-            eta = NaN(1,size(obj.T1,2));
             is2phase = IF97.is2phase(obj.rho1,obj.T1);
-            c_g = IF97.w(obj.p1(is2phase),obj.T1(is2phase),1); 
+            c_g = IF97.w(obj.p1(is2phase),NaN,1);
             rho_l = IF97.rho_satL(obj.T1(is2phase));
             rho_g = IF97.rho_satV(obj.T1(is2phase));
             xDot = IF97.x(obj.rho1(is2phase),obj.T1(is2phase));
             eta_l = IF97.my(rho_l,obj.T1(is2phase));
             eta_g = IF97.my(rho_g,obj.T1(is2phase));
-            eta(is2phase) = xDot.*eta_g + (1-xDot).*eta_l;
-            eta(~is2phase) = IF97.my(obj.rho1(~is2phase),obj.T1(~is2phase)); 
+            eta = IF97.my(obj.rho1(~is2phase),obj.T1(~is2phase)); 
             
             A = obj.di^2*pi/4; 
             u = obj.mDot1./(obj.rho1.*A*obj.N); 
-            Re = u.*obj.rho1.*obj.di./eta;         
+            Re = u(~is2phase).*obj.rho1(~is2phase).*obj.di./eta;         
             deltap_i = NaN(1,size(Re,2));
     
-            %%% SINGL PHASE
+            %%% SINGLE PHASE
             % L1.2 Druckverlust in durchströmten Rohren (S.1223)
-            Re_si = Re(~is2phase);
-            f = NaN(1, size(Re_si,2)); %empty friction factor  array
-            
-            lam=Re_si<3000; % laminar flow
-            f(lam)=64./Re_si(lam);
-            tur_B = 3*10^3 <= Re_si & Re_si < 10^4; % turbulent flow 
-            f(tur_B) = 0.3164./(Re_si(tur_B).^(1/4));
-            tur_K = 10^4 <= Re_si & Re_si <= 10^6;% turbulent flow 
-            f(tur_K) = (1.8 .* log10(Re_si(tur_K)) - 1.5).^(-2);
-            tur_P = Re_si > 10^6; % turbulent flow
-            fP = 64 ./ Re_si(tur_P);% start value
+            f = NaN(1, size(Re,2)); %empty friction factor  array
+            lam=Re<3000; % laminar flow
+            f(lam)=64./Re(lam);
+            tur_B = 3*10^3 <= Re & Re < 10^4; % turbulent flow 
+            f(tur_B) = 0.3164./(Re(tur_B).^(1/4));
+            tur_K = 10^4 <= Re & Re <= 10^6;% turbulent flow 
+            f(tur_K) = (1.8 .* log10(Re(tur_K)) - 1.5).^(-2);
+            tur_P = Re > 10^6; % turbulent flow
+            fP = 64 ./ Re(tur_P);% start value
             d = 1;
             while d > 0.000001 % exactness of the interation
-                x = Re_si(tur_P).*(fP.^0.5);
-                n = 2 .* log10(x) - 0.8;
+                z = Re(tur_P).*(fP.^0.5);
+                n = 2 .* log10(z) - 0.8;
                 f_new = (1./n).^2;
-                d = sum(abs(fP - f_new))/size(Re_si(tur_P),2);
+                d = sum(abs(fP - f_new))/size(Re(tur_P),2);
                 fP = f_new;
             end
             f(tur_P) = fP;
-   
-            x=linspace(obj.l./obj.nCells,obj.l,obj.nCells);
-            x(x<obj.di) = obj.di;
-            deltap_i(~is2phase) = f .* (x(1)./obj.di) .* (obj.rho1(~is2phase) .* u(~is2phase).^2 ./ 2); %prassure loss
 
-            %%% TWO PHASE VAPORIZATION
-            % H3.2 Druckverlust in durchströmten Verdampferrohren (S.903)      
-            Xi = NaN(1, size(obj.T1(is2phase),2));
-            mDot = obj.mDot1/obj.N;
+            lcell=obj.l./obj.nCells; 
+            deltap_i(~is2phase) = f .* (lcell./obj.di) .* (obj.rho1(~is2phase) .* u(~is2phase).^2 ./ 2); %pressure loss
             
-            Fr = u(is2phase).^2./(g*obj.di);
+            %%% TWO PHASE VAPORIZATION
+            % H3.2 Druckverlust in durchströmten Verdampferrohren (S.903)
+            theta = 0; %tilt angle for horizontal pipes
+            Xi = NaN(1, size(obj.T1(is2phase),2));
+            mDot = obj.mDot1/(obj.N.*A); %mass flow density
+            
+            Fr = (mDot.*xDot).^2./(rho_g.*rho_l.*g*obj.di);
             a = xDot.*rho_l./((1-xDot).*rho_g); 
             beta = 1./a;
           
@@ -237,19 +230,22 @@ classdef hex < handle
             eps = NaN(1, size(rho_l,2));
             
             % friction pressure loss
-            dis = a <= (12.*Fr.^0.5./((1+Fr.^0.5./7))); % dispersed
+            dis = a <= (12.*Fr.^0.5./(1+Fr.^0.5./7)); % dispersed
+            beta_dis = beta(dis);
             K2 = NaN(1, size(a(dis),2));%empty friction pressure loss array
-            bs = beta(dis) <= 0.4;
-            K2(bs) = 1 + 0.09 .* beta(bs); 
-            bb = beta(dis) > 0.4;
-            K2(bb) = 1./(1 - (2.97./(beta(bb).^(2./3))+1)./(6.*(1.83./(beta(bb).^(2./3))+1).*(3.43./(beta(bb).^(2./3))+1)));
-            Re_ZP = mDot.*obj.di./(eta(dis).*(1-xDot(dis).*(1-eta_g(dis)./eta_l(dis))));
+            bs = beta_dis <= 0.4;
+            K2(bs) = 1 + 0.09 .* beta_dis(bs); 
+            bb = beta_dis > 0.4;
+            K2(bb) = 1./(1 - (2.97./(beta_dis(bb).^(2./3))+1)./(6.*(1.83./(beta_dis(bb).^(2./3))+1).*(3.43./(beta_dis(bb).^(2./3))+1)));
+
+            Re_ZP = mDot.*obj.di./(eta_l(dis).*(1-xDot(dis).*(1-eta_g(dis)./eta_l(dis))));
+
             
             %friction factor
             xid = 0.1; %Startwert
             d = 1;
             while d > 0.000001
-                n = -2.*log10(obj.K./(3.7.*obj.di))+2.51./(Re_ZP.*xid.^0.5);
+                n = -2.*log10((obj.K./obj.di)./3.7)+2.51./(Re_ZP.*xid.^0.5);
                 xi_new = (1./n).^2;
                 d = sum(abs(xid - xi_new))/size(xi_new,2);
                 xid = xi_new;
@@ -263,17 +259,14 @@ classdef hex < handle
             
             %continous gas phase 
             con = a > (12.*Fr.^0.5./((1+Fr.^0.5./7)));
-            
             Re_l = mDot.*obj.di.*(1-xDot(con))./(eta_l(con));
             Re_g = mDot.*obj.di.*xDot(con)./(eta_g(con));
-            Fr_l = mDot.^2 .* (1-xDot(con)).^2 ./ (rho_l(con).*g.*obj.di);
+            Fr_l = mDot.^2 .* (1-xDot(con)).^2 ./ (rho_l(con).^2.*g.*obj.di);
             psi = (1-xDot(con))./xDot(con) .* (Re_l.*Fr_l).^(-1./6).*(rho_l(con)./rho_g(con)).^(-0.9) .* (eta_l(con)./eta_g(con)).^(-0.5);
             
-            
-            if obj.K/obj.di < 5*10^(-4) %smooth pipes
-            eps_1 = 1.71.*psi.^0.2 .* ((1-xDot(con))./xDot(con)).^0.15 .* (rho_g(con)./rho_l(con)).^0.1;
-            else %not smooth pipes
-            eps_1 = 1.71.*psi.^0.2 .* ((1-xDot(con))./xDot(con)).^0.5 .* (rho_g(con)./rho_l(con)).^0.1 .* (5.*10.^4./(obj.K./obj.di)).^0.13;
+            eps_1 = 1.71.*psi.^0.2 .* ((1-xDot(con))./xDot(con)).^0.15 .* (rho_g(con)./rho_l(con)).^0.5.*(eta_g(con)./eta_l(con)).^0.1;
+            if obj.K/obj.di>=5*10^-4
+                eps_1=eps_1.*(5.*10.^4./(obj.K./obj.di)).^0.13;
             end
             eps_2 = 9.1 .* psi;
             eps_f = (eps_1.^-3 + eps_2.^-3).^(-1/3);
@@ -281,8 +274,7 @@ classdef hex < handle
             %Barnett number
             gamma_E = (1 + 6.67./(((1-xDot(con))./xDot(con)).^0.45 .* (1+3.*xDot(con).^4).*(eta_l(con)./eta_g(con)-1).^0.25)).^(-1);
             gamma_F = 1 - (1 + (1-xDot(con)).*rho_g(con)./(xDot(con).*eps_f.*rho_l(con))).^(-1.19);
-            E = 1.857 + 0.814 .* log10((mDot.*xDot(con)./(rho_g(con).*c_g(con))).^2 .* (1 + 4575 .* rho_g(con).^2./rho_l(con).^2));
-            
+            E = 1.857 + 0.815 .* log10((mDot.*xDot(con)./(rho_g(con).*c_g(con))).^2 .* (1 + 4575 .* rho_g(con).^2./rho_l(con).^2));
             phi = (1./(1-(1-E).*gamma_F-E.*gamma_E)).^2;
             
             %frictionnumber
@@ -296,8 +288,11 @@ classdef hex < handle
             end
             Xi(con) = xic;
             grad_friction(con) = Xi(con) .* mDot.^2./(2.*rho_g(con).*obj.di).*phi;
-            dp_friction = grad_friction .* x(1);
-            
+            dp_friction = grad_friction .* lcell;
+            if size(dp_friction,2) > 0
+                dp_friction(1) = grad_friction(1) .*(lcell/2);
+            end
+          
             %STATIC PRESSURE LOSS
             %dispersed
             K_dis = 1 - (30.4./beta(dis).^2.3 + 11)./(60.*(1.6./beta(dis).^2.3 +1).*(3.2./beta(dis).^2.3+1));
@@ -324,20 +319,25 @@ classdef hex < handle
             H_2 = X_u./(1+X_u);
             eps_con(ac) = 0.1; %start value
             while d < 0.000001
-                H_1 = exp(2-0.1335.*log(eta_l_con(ac)/eta_g_con(ac)) + (1.1 - 0.08534*log(eta_l_con(ac)/eta_g_con(ac))))*log(eps_con(ac));
+                H_1 = exp(2-0.1335.*log(eta_l_con(ac)/eta_g_con(ac)) + (1.1 - 0.08534*log(eta_l_con(ac)/eta_g_con(ac)))*log(eps_con(ac)));
                 H(ac) = (H_1.^-3 + H_2.^-3).^(-1/3);
                 eps_new = 1 - H(ac);
                 d = sum(abs(eps_con(ac) - eps_new))/size(eps_new,2);
                 eps_con(ac) = eps_new;
             end 
             eps(con) = eps_con;
-            grad_static = (rho_l.*(1-eps) + rho_g.*eps)*g;
-            dp_static = grad_static .* x(1);
+            grad_static = (rho_l.*(1-eps) + rho_g.*eps).*g.*sin(theta); 
+            dp_static = grad_static .* lcell;
+            if size(dp_static,2) > 0
+                dp_static(1) = grad_static(1) .* (lcell./2);
+            end
+            
+            
             
             %ACCELERATION PRESSURE LOSS
-            dp_acceleration = NaN(1, size(dp_static,2));
+            dp_acceleration = NaN(1, size(dp_friction,2));
             if size(eps,2) > 0
-                for pos = 2:(size(dp_static,2))
+                for pos = 2:(size(dp_friction,2))
                     part_1 = xDot(pos-1).^2./(eps(pos-1).*rho_g(pos-1)) + (1-xDot(pos-1)).^2./((1-eps(pos-1)).*rho_l(pos-1));
                     part_2 = xDot(pos).^2./(eps(pos).*rho_g(pos)) + (1-xDot(pos)).^2./((1-eps(pos)).*rho_l(pos));
                     dp_acceleration(pos) = mDot.^2.*(part_2 - part_1);
@@ -348,14 +348,11 @@ classdef hex < handle
             end
             
             %WHOLE PRESSURE LOSS
-            deltap_i(is2phase) = (dp_friction + dp_static + dp_acceleration);    
-            
-            for pos = 1:size(deltap_i,2)
-                obj.p1(pos) = obj.p1in - sum(deltap_i(1:pos));  
-            end
-            obj.delta_p1 = deltap_i;
-
+            deltap_i(is2phase) = (dp_friction + dp_static + dp_acceleration); %dp_static == 0
+            obj.delta_p1 = cumsum(deltap_i);
+            obj.p1 = obj.p1in -  obj.delta_p1;     
         end
+        
         %% HEAT TRANSFER COEFFICIENT OUTSIDE
         function alpha_out(obj)
             persistent lambda40 baseAlpha
@@ -452,7 +449,6 @@ classdef hex < handle
                 QDot=QDotsum;
                 obj.Qdot = QDot;
            
-
                 %Ausgabe-Information
                 if mod(count,10)==0
                     switch idx
@@ -507,8 +503,6 @@ classdef hex < handle
                 obj.delta_p1=fliplr(obj.delta_p1);
                 obj.rho1=fliplr(obj.rho1);
             end
-        obj.count_a = count;
-        obj.err_a = err;
         end
         
         %% Tx DIAGRAM
@@ -520,22 +514,9 @@ classdef hex < handle
             xlabel("x in m")
             ylabel("T in K")
         end
-        %% TQ DIAGRAM NEW
-        % plots a new TQ diagram 
-        function plot_TQ(obj)
-            Qdot_n=linspace(0,abs(obj.Qdot),obj.nCells+1);  
-            if obj.T1(1) > obj.T3(1) % charge
-                plot(Qdot_n,[[obj.T1left,obj.T1right(end)];[obj.T3left(1),obj.T3right]]);
-            else % discharge
-                plot(Qdot_n,[[obj.T1left(1),obj.T1right];[obj.T3left,obj.T3right(end)]]);
-            end
-            legend('Wasser','Sand')
-            xlabel("QDot in W")
-            ylabel("T in K")
-        end
+      
 
-        %% SECTION TITLE
-        % px DIAGRAM
+        %% PX DIAGRAM
         function px_diagram(obj)
             x=linspace(obj.l./obj.nCells,obj.l,obj.nCells);
             x(x<obj.di) = obj.di;
