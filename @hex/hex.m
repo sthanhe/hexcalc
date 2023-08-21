@@ -65,7 +65,7 @@ classdef hex < handle
         w_channel;
         T_flu=0;
         A_Bett;
-        h_Bett;
+        h_Bett = 3;
         d_p;
         
     end
@@ -302,15 +302,18 @@ classdef hex < handle
             % eta_G = 0.7;
             % Tc_in = T1_G+eta_G.^-1.*T1_G.*((p2_G/p1_G).^(0.4/1.4)-1);
 
+            
             %compressor
-            comp = compressor();
-            comp.h_bed = obj(1).h_Bett;
-            ABett = sum([obj.A_Bett])/nRec;
-            comp.A_bed = ABett;
-            comp.dp = obj(1).d_p;
-            comp.rho_p = obj(1).rho_p;
-            comp.calculate(1.7) %facor: dp = 1.7*dp_bed
-            obj(1).comp_object = comp;
+            if nRec ~= 1000
+                comp = compressor();
+                comp.h_bed = obj(1).h_Bett;
+                ABett = sum([obj.A_Bett])/nRec;
+                comp.A_bed = ABett;
+                comp.dp = obj(1).d_p;
+                comp.rho_p = obj(1).rho_p;
+                comp.calculate(1.7) %facor: dp = 1.7*dp_bed
+                obj(1).comp_object = comp;
+            end
            
             err=repmat(10,1,5);
             QDot=0;
@@ -340,55 +343,62 @@ classdef hex < handle
                 QDoti=F1.*k1.*A1.*dT; %Charge / Discharge 
 
                 % NTU
-                step_size = fix(len/nRec);
-                rest = rem(len,nRec);
-                step = 0:step_size:len-rest;
-                step(end) = step(end) + rest;
-                if nRec == 1
-                    rec1 = recuperator();
-                    rec = rec1;
-                elseif nRec == 2
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec = [rec1 rec2];
-                elseif nRec == 3
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec = [rec1 rec2 rec3];
-                elseif nRec == 4
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec4 = recuperator();
-                    rec = [rec1 rec2 rec3 rec4];
-                elseif nRec == 5
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec4 = recuperator();
-                    rec5 = recuperator();
-                    rec = [rec1 rec2 rec3 rec4 rec5];
-                end
-                
-                rec_d = recuperator();
-                pSand = NaN(1,len);
-                pSand(:) = comp.p_bed;
+                % if nRec == 100
+                %     Q4 = obj.QLoss_Rec;
+                %     nRec = 0;
+                % end
 
+                %Recuperator
                 if nRec == 0
                     Q4 = zeros(1,len);
+                elseif nRec == 1000
+                    Q4 = obj.QLoss_Rec;
                 else
+                    step_size = fix(len/nRec);
+                    rest = rem(len,nRec);
+                    step = 0:step_size:len-rest;
+                    step(end) = step(end) + rest;
+                    if nRec == 1
+                        rec1 = recuperator();
+                        rec = rec1;
+                    elseif nRec == 2
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec = [rec1 rec2];
+                    elseif nRec == 3
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec = [rec1 rec2 rec3];
+                    elseif nRec == 4
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec4 = recuperator();
+                        rec = [rec1 rec2 rec3 rec4];
+                    elseif nRec == 5
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec4 = recuperator();
+                        rec5 = recuperator();
+                        rec = [rec1 rec2 rec3 rec4 rec5];
+                    end
+
+                    rec_d = recuperator();
+                    pSand = NaN(1,len);
+                    pSand(:) = comp.p_bed;
                     for r=1:nRec
-                    Th_in=mean(T3m(step(r)+1:step(r+1)));
-                    mDot4_Rec = hex.mflu(comp.dp,comp.rho_p,comp.p_bed,Th_in,ABett,4);
-                    rec_d.Th_in = Th_in;
-                    rec_d.Tc_in = comp.Tout;
-                    rec_d.mDot4 = mDot4_Rec;
-                    rec_d.desing(comp.pout);
-                    rec(r).recalculate(rec_d,mDot4_Rec,Th_in,comp.Tout,comp.pout);
-                    ha1 = DryAir.h(comp.pout,rec(r).Tc_out);
-                    ha2 = DryAir.h(pSand(step(r)+1:step(r+1)),T3m(step(r)+1:step(r+1)));
-                    Q4(step(r)+1:step(r+1)) = rec(r).mDot4*(ha2-ha1)./(step(r+1)-step(r));
+                        Th_in=mean(T3m(step(r)+1:step(r+1)));
+                        mDot4_Rec = hex.mflu(comp.dp,comp.rho_p,comp.p_bed,Th_in,ABett,4);
+                        rec_d.Th_in = Th_in;
+                        rec_d.Tc_in = comp.Tout;
+                        rec_d.mDot4 = mDot4_Rec;
+                        rec_d.desing(comp.pout);
+                        rec(r).recalculate(rec_d,mDot4_Rec,Th_in,comp.Tout,comp.pout);
+                        ha1 = DryAir.h(comp.pout,rec(r).Tc_out);
+                        ha2 = DryAir.h(pSand(step(r)+1:step(r+1)),T3m(step(r)+1:step(r+1)));
+                        Q4(step(r)+1:step(r+1)) = rec(r).mDot4*(ha2-ha1)./(step(r+1)-step(r));
                     end 
                     obj(1).rec_object = rec;
                 end
