@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: hexcalc
+type: software
+authors:
+  - given-names: Stefan
+    family-names: Thanheiser
+    email: stefan.thanheiser@tuwien.ac.at
+    affiliation: TU Wien
+    orcid: https://orcid.org/0000-0003-2765-1156
+  - given-names: Theresa
+    family-names: Brunauer
+    email: theresa.brunauer@boku.ac.at
+    affiliation: BOKU University
+    orcid: https://orcid.org/0009-0007-8584-1093
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.xxxx
+    description: DOI of newest version
+abstract: Repository for the cell model of a heat exchanger
+keywords:
+  - sandTES
+  - thermal energy storage
+  - heat transfer
+  - fluidized bed heat exchanger
+license: GPL-3.0

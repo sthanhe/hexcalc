@@ -53,7 +53,7 @@ classdef DryAir
         end
 
         function s = sigma(T)
-            s = NaN(length(T));
+            s = NaN(1,(size(T,2)));
         end
     end
     methods(Static)

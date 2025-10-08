@@ -1,22 +1,22 @@
 classdef compressor < handle 
     properties
         % compressor
-        pin = 10^5 %Pa
-        pout;
-        dp_c;
-        Tin = 25 + 273.15 %K
-        Tout; 
-        eta = 0.7
-        wt;
+        pin = 10^5                % ambient pressure (Pa)
+        pout;                     % pressure after compression (Pa)
+        dp_c;                     % pressure difference compressor (Pa)
+        Tin = 25 + 273.15         % temperature ambient air (K)
+        Tout;                     % temperature after compression (K)
+        eta = 0.7                 % efficiency
+        wt;                       % technical work of the compressor (J/kg)
 
         % sand bed
-        h_bed;
-        A_bed;
-        delta_p_bed;
-        p_bed;
-        dp;
-        eps_por = 0.5;
-        rho_p;
+        h_bed;                    % height of the sand bed (m)
+        A_bed;                    % area of the bed (m^2)
+        delta_p_bed;              % pressure loss of the bed (Pa)
+        p_bed = 0;                % pressure of the bed on top (Pa)
+        dp = 120 * 10^-6;         % diameter of the sand particle (m)
+        rho_p = 2650;             % density of the particle (kg/m^3)
+        eps_por = 0.5;            % porosity of the sand bed (-)
     end
 
     methods
@@ -52,8 +52,6 @@ classdef compressor < handle
             cp = DryAir.c_p(p1,T1);
             w = eta^-1*cp*T1*((p2/p1)^(0.4/1.4)-1);
         end
-
-
 
         function p = pbed(pout, dp_bed)
             p = pout - dp_bed;

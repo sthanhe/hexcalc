@@ -7,71 +7,101 @@ classdef hex < handle
      %3: Sand-Side
      
     properties
+        % specification
         name
         flow_type
         process_medium
-        prop = IF97;
-        % start conditions
-        Qdot_start = 0
-        T1_start = 0
-        p_start = 0
-        T3_start = 0
+        prop = IF97;     
+        charge       % logical value (-) 
 
-        mDot1;       % mass flow process medium(kg/s)                 [1,1]
-        mDot3;       % mass flow sand (kg/s)                          [1,1]
+        % start conditions
+        Qdot_start = 0 % W
+        T3_start = 0   % K
+        T1_start = 0   % K
+        p_start = 0    % Pa
+
+        % mass flow
+        mDot1;       % mass flow process medium(kg/s)                 
+        mDot3;       % mass flow sand (kg/s)                          
         mDot4;       % mass flow fluidisation air (kg/s)
-        di;          % inner diameter (m)                             [1,1]
-        e;           % wall thickness (m)                             [1,1]
-        l;           % pipe length (m)                                [1,1]
-        nTube;       % number of tubes (-)                            [1,1]
+        
+        % geometrie
+        da;          % outer diameter (m)
+        di;          % inner diameter (m)                             
+        s;           % wall thickness (m)                             
+        l;           % tube length (m)                                
+        nTube;       % number of tubes (-)                            
         npass;       % number of passes (-)
-        K=0;         % absolute roughness (m)                         [1,1]
-        nCells;      % number of cells (-)                            [1,1]
-        T1left;      % temperature left side (K)                      [1,n]
-        T1right;     % temperature right side (K)                     [1,n]
-        T1           % average temperature (K)                        [1,n]
-        T3left;      % temperature left side (K)                      [1,n]
-        T3right;     % temperature right side (K)                     [1,n]
-        T3           % average temperature (K)                        [1,n]
-        rho1;        % density (kg/m^3)                               [1,n]
-        p1           % average pressure (Pa)                          [1,n]
-        delta_p1     % pressuer loss (Pa)                             [1,n]
-        p1in         % initial pressure (Pa)                          [1,1]
-        h1left       % specific enthalpy left side (J/kg)             [1,n]
-        h1right      % specific enthalpy right side (J/kg)            [1,n]
-        h3left       % specific enthalpy left side (J/kg)             [1,n]
-        h3right      % specific enthalpy right side (J/kg)            [1,n]
-        Qdot1;       % heat flow (W)                                [1,n+1]
-        Qdot_1       % heat flow process medium side(W)               [1,1]
-        Qdot_3       % heat flow sand side(W)                         [1,1]
-        QLoss_Rec    % heat flow loss (W)                             [1,n]
-        alpha_i      % heat transfer coefficient inside (W/m^2*K)     [1,1]
-        alpha_a = 0  % heat transfer coefficient outside (W/m^2*K)    [1,n]
-        k            % overall heat transfer coefficient(W/m^2*K)     [1,n]
-        F=1;         % flow characteristics crosscurrent/countercurrent [1,1]                                                                                                          
-        lambda_st=50;% heat conductivity for steel tube(W/m*K)        [1,1]
-        charge       % logical value (-)                              [1,n]
+        K=0;         % absolute roughness (m)                         
+        nCells;      % number of cells (-)  
+        w_channel;   % 
+        
+        %material values
+        T1left;      % temperature left side (K)                      
+        T1right;     % temperature right side (K)                    
+        T1           % average temperature (K)  
+        h1left       % specific enthalpy left side (J/kg)        
+        h1right      % specific enthalpy right side (J/kg) 
+        rho1
+        
+        T3left;      % temperature left side (K)                      
+        T3right;     % temperature right side (K)                   
+        T3           % average temperature (K)   
+        h3left       % specific enthalpy left side (J/kg)           
+        h3right      % specific enthalpy right side (J/kg)
+
+        p1           % average pressure (Pa)                          
+        delta_p1     % pressuer loss (Pa)                          
+        p1in         % initial pressure (Pa) 
+        
+        lambda_st=50;% heat conductivity for steel tube(W/m*K)                                 
+        
+        % Heat flow
+        Qdot1;       % heat flow (W)                               
+        Qdot_1       % heat flow process medium side(W)             
+        Qdot_3       % heat flow sand side(W)                         
+                                   
+        alpha_i      % heat transfer coefficient inside (W/m^2*K)    
+        alpha_a = 0  % heat transfer coefficient outside (W/m^2*K)   
+        k            % overall heat transfer coefficient(W/m^2*K)     
+                                                                                                            
+            
+                                    
         QSum;
         kA;
         Atot;
-        
+        x_Dot;
+       
+        % Recuperator
         rec_object; % Recuperator
+        QLoss_Rec    % heat flow loss (W) 
+
+        % compressor
         comp_object; % compressor
+        
+        sand_bed_obj;
         % sand bed
         rho_p = 2650;
         p_bed = 10^5;
         eps_por = 0.5;
         L_bed;
-        w_channel;
+        l_cavity=0;
+        
         T_flu=0;
         A_Bett;
-        h_Bett;
+        h_bed = 3;
         d_p;
-        
+
+        % natural circulation
+        is_NU = false;
+        h_Tr;
+        cn;
+
+
     end
     
     methods
-        function obj = hex(al_a,prop,mDot1,mDot3,di,e,l,nTube,K)
+        function obj = hex(al_a,prop,mDot1,mDot3,di,s,l,nTube,K)
             if nargin==0
                 return
             elseif nargin == 1
@@ -81,17 +111,20 @@ classdef hex < handle
                 obj.mDot1 = mDot1;
                 obj.mDot3 = mDot3;
                 obj.di = di;
-                obj.e = e;
+                obj.s = s;
                 obj.l = l;
                 obj.nTube = nTube;
                 obj.K = K;
             end
         end
         
-        %% TQ DIAGRAM
-        % plot TQ-diagram
+        %% TQ CALC
+       
 
-        function TQ_diagram(obj)
+        function TQ_calc(obj,PLOT)
+            if nargin == 1
+                PLOT = false;
+            end
             if obj(1).process_medium == "water"
                 obj(1).prop = IF97();
             elseif obj(1).process_medium == "air"
@@ -104,23 +137,18 @@ classdef hex < handle
             len = sum([obj.nCells]);
             Qdot = [obj.Qdot_start];
             T1in = [obj.T1_start];
-            a = T1in ~= 0;
-            T1in = T1in(a);
-            p = [obj.p_start];
-            p = p(a);
-            rho1in = 1./spec.v(p, T1in);
             T3in = [obj.T3_start];
-            b = T3in ~= 0;
-            T3in = T3in(b);
+            p = [obj.p_start];
+            rho1in = 1./spec.v(p,T1in);
 
-            if T1in > T3in  %charge 
+            if T1in(1) > T3in(1)  %charge 
                 [obj.charge]=deal(true); 
                 Qdot = [0, Qdot];
             else           %discharge
                 [obj.charge]=deal(false);
                 Qdot = [0, -Qdot];
-   
             end
+
             step = 0;
             for n = 1:size(obj,2)
                 QDot3(step+1:step+obj(n).nCells+1)=linspace((Qdot(n)),(Qdot(n))+(Qdot(n+1)),obj(n).nCells+1);
@@ -141,12 +169,13 @@ classdef hex < handle
             T3r=SiO2.T_h(H3r);
             T3m=(T3l + T3r)./2;
 
-
             P1 = NaN(1,len);
             H1l = NaN(1,len);
             H1r = NaN(1,len);
             H1In=spec.h_rhoT(rho1in,T1in); % enthalpy
             
+            % water side
+
             if obj(1).charge
                 loop = 1:size(obj,2);
                 step = 0;
@@ -156,13 +185,14 @@ classdef hex < handle
                 step = obj(1).nCells;
                 t=-1;
             end
+            
             for n = loop
                 pos = (step+1:step+obj(n).nCells);
                 QDot1m=linspace(0,(Qdot(n+1)),obj(n).nCells+1);
                 if ~obj(1).charge
                     QDot1m = fliplr(QDot1m);
                 end
-                % water-side    
+                
                 P1in=spec.p(rho1in,T1in);
                 P1(pos)=repmat(P1in,1,obj(n).nCells); % pressure
                 H1l(pos)=H1In-QDot1m(1:end-1)./obj(n).mDot1;
@@ -191,22 +221,23 @@ classdef hex < handle
                 Rho1 = 1./spec.v(P1,T1m); % für CO2
             end
 
-           % plot 
-            if T1in > T3in % charge
-                p_1 = plot(abs(QDot3),[[T1l-273.15,T1r(end)-273.15];[T3l(1)-273.15,T3r-273.15]]);
-            else            % discharge
-                p_1 = plot(abs(QDot3),[([T1l(1)-273.15,T1r-273.15]);([T3l-273.15,T3r(end)-273.15])]);
-            end
+            if PLOT
+                if T1in(1) > T3in(1) % charge
+                    p_1 = plot(abs(QDot3),[[T1l-273.15,T1r(end)-273.15];[T3l(1)-273.15,T3r-273.15]]);
+                else % discharge
+                    p_1 = plot(abs(QDot3),[([T1l(1)-273.15,T1r-273.15]);([T3l-273.15,T3r(end)-273.15])]);
+                end
 
-            if obj(1).process_medium == "water"
-                legend(p_1 ,{"water", 'sand'})
-            elseif obj(1).process_medium == "air"
-                legend(p_1,{"water", 'air'})
-            elseif obj(1).process_medium == "CO2"
-                legend(p_1,{"water", 'CO2'})
+                if obj(1).process_medium == "water"
+                    legend(p_1 ,{"water", 'sand'})
+                elseif obj(1).process_medium == "air"
+                    legend(p_1,{"water", 'air'})
+                elseif obj(1).process_medium == "CO2"
+                    legend(p_1,{"water", 'CO2'})
+                end
+                xlabel("QDot in W")
+                ylabel("T in °C")
             end
-            xlabel("QDot in W")
-            ylabel("T in °C")
 
             step = 0;
             for n = 1:size(obj,2)
@@ -230,7 +261,14 @@ classdef hex < handle
 
         %% HEAT EXCHANGER CALCULATION
         % DESCRIPTIVE TEXT 
-        function hex_calculation(obj,nRec,idx)
+        function hex_calculation(obj,idx,nRec)
+            if nargin == 1
+                idx = 1;
+                nRec = NaN;
+            elseif nargin == 2
+                nRec = NaN;
+            end
+            
             spec = obj(1).prop;
             % get values
             len = sum([obj.nCells]);
@@ -241,8 +279,8 @@ classdef hex < handle
             if obj(1).charge
                 T1in=[obj.T1left];
                 T3in=[obj.T3right];
-                h1in=[obj.h1right];
-                h3in=[obj.h3left];
+                h1in=[obj.h1left];
+                h3in=[obj.h3right];
             else
                 T1in=[obj.T1right];
                 T3in=[obj.T3left];
@@ -251,11 +289,15 @@ classdef hex < handle
             end
 
             if obj(1).flow_type == "crosscurrent"
-                obj(1).F = 0.869;
+                F = 0.869;
             else
-                obj(1).F = 1;
+                F = 1;
             end
            
+            if isempty(obj.di)
+                obj.di = obj.da - 2*obj.s;
+            end
+                
             step = 0;
             for i = 1:size(obj,2)
                 L(step+1:step+obj(i).nCells) = obj(i).l;
@@ -267,11 +309,10 @@ classdef hex < handle
                 K_pipe(step+1:step+obj(i).nCells) = obj(i).K;  
                 x(step+1:step+obj(i).nCells) = linspace(obj(i).l./obj(i).nCells,obj(i).l,obj(i).nCells); 
                 QDot1(step+1:step+1+obj(i).nCells) = obj(i).Qdot1;
-                Da(step+1:step+obj(i).nCells) = obj(i).di + 2*obj(i).e;
+                Da(step+1:step+obj(i).nCells) = obj(i).di + 2*obj(i).s;
                 P1In(step+1:step+obj(i).nCells) = obj(i).p_start;
                 lcell(step+1:step+obj(i).nCells)=obj(i).l/obj(i).nCells;
                 Ncells(step+1:step+obj(i).nCells) = obj(i).nCells;
-                F1(step+1:step+obj(i).nCells) = obj(i).F;
                 step = step + obj(i).nCells;
             end
             x(x<D) = D(x<D); 
@@ -290,7 +331,7 @@ classdef hex < handle
                 mdot1=fliplr(mdot1);
             end
 
-            % h_bed = obj(1).h_Bett; %m
+            % h_bed = obj(1).h_bed; %m
             % dp_bed = FluBed.deltaP(h_bed,obj(1).eps_por,obj(1).rho_p);
             % % p_bed = 10^5+dp_bed*0.7;
             % 
@@ -302,15 +343,18 @@ classdef hex < handle
             % eta_G = 0.7;
             % Tc_in = T1_G+eta_G.^-1.*T1_G.*((p2_G/p1_G).^(0.4/1.4)-1);
 
+            
             %compressor
-            comp = compressor();
-            comp.h_bed = obj(1).h_Bett;
-            ABett = sum([obj.A_Bett])/nRec;
-            comp.A_bed = ABett;
-            comp.dp = obj(1).d_p;
-            comp.rho_p = obj(1).rho_p;
-            comp.calculate(1.7) %facor: dp = 1.7*dp_bed
-            obj(1).comp_object = comp;
+            if isnan(nRec) || nRec ~= 0
+                comp = compressor();
+                comp.h_bed = obj(1).h_bed;
+                ABett = sum([obj.A_Bett])/nRec;
+                comp.A_bed = ABett;
+                comp.dp = obj(1).d_p;
+                comp.rho_p = obj(1).rho_p;
+                comp.calculate(1.7) %facor: dp = 1.7*dp_bed
+                obj(1).comp_object = comp;
+            end
            
             err=repmat(10,1,5);
             QDot=0;
@@ -320,75 +364,83 @@ classdef hex < handle
            
             while err(end)>1 || ~isConv
 
-                %heat transfer coefficient
-                al_i = alpha_in(); 
+                
+                if obj.is_NU
+                     al_i = repmat(10000,1,len);
+                else
+                    al_i = alpha_in();
+                end
                 if mean(al_i) > 50000
                     al_i = repmat(50000,1,len);
                 end
+
+                %heat transfer coefficient outside
                 if obj(1).alpha_a == 0
                     al_a = alpha_out();
                 else
                     al_a = obj(1).alpha_a;
                 end
 
-                % al_a = 800;
-                % al_a = 600;
                 k1 = ((1./al_a) + (Da./(2.*Lamb)).*log(Da./D)+Da./(al_i.*D)).^-1;  
                 dT = (T1m - T3m);
 
-                %Wärmestrom pro Zelle
-                QDoti=F1.*k1.*A1.*dT; %Charge / Discharge 
+                % Heatflow
+                QDoti=F.*k1.*A1.*dT; 
 
-                % NTU
-                step_size = fix(len/nRec);
-                rest = rem(len,nRec);
-                step = 0:step_size:len-rest;
-                step(end) = step(end) + rest;
-                if nRec == 1
-                    rec1 = recuperator();
-                    rec = rec1;
-                elseif nRec == 2
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec = [rec1 rec2];
-                elseif nRec == 3
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec = [rec1 rec2 rec3];
-                elseif nRec == 4
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec4 = recuperator();
-                    rec = [rec1 rec2 rec3 rec4];
-                elseif nRec == 5
-                    rec1 = recuperator();
-                    rec2 = recuperator();
-                    rec3 = recuperator();
-                    rec4 = recuperator();
-                    rec5 = recuperator();
-                    rec = [rec1 rec2 rec3 rec4 rec5];
-                end
-                
-                rec_d = recuperator();
-                pSand = NaN(1,len);
-                pSand(:) = comp.p_bed;
-
+                %Recuperator
                 if nRec == 0
                     Q4 = zeros(1,len);
+                elseif isnan(nRec)
+                    Q4 = obj.QLoss_Rec;
                 else
+                    step_size = fix(len/nRec);
+                    rest = rem(len,nRec);
+                    step = 0:step_size:len-rest;
+                    step(end) = step(end) + rest;
+                    if nRec == 1
+                        rec1 = recuperator();
+                        rec = rec1;
+                    elseif nRec == 2
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec = [rec1 rec2];
+                    elseif nRec == 3
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec = [rec1 rec2 rec3];
+                    elseif nRec == 4
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec4 = recuperator();
+                        rec = [rec1 rec2 rec3 rec4];
+                    elseif nRec == 5
+                        rec1 = recuperator();
+                        rec2 = recuperator();
+                        rec3 = recuperator();
+                        rec4 = recuperator();
+                        rec5 = recuperator();
+                        rec = [rec1 rec2 rec3 rec4 rec5];
+                    end
+
+                    rec_d = recuperator();
+                    pSand = NaN(1,len);
+                    pSand(:) = comp.p_bed;
                     for r=1:nRec
-                    Th_in=mean(T3m(step(r)+1:step(r+1)));
-                    mDot4_Rec = hex.mflu(comp.dp,comp.rho_p,comp.p_bed,Th_in,ABett,4);
-                    rec_d.Th_in = Th_in;
-                    rec_d.Tc_in = comp.Tout;
-                    rec_d.mDot4 = mDot4_Rec;
-                    rec_d.desing(comp.pout);
-                    rec(r).recalculate(rec_d,mDot4_Rec,Th_in,comp.Tout,comp.pout);
-                    ha1 = DryAir.h(comp.pout,rec(r).Tc_out);
-                    ha2 = DryAir.h(pSand(step(r)+1:step(r+1)),T3m(step(r)+1:step(r+1)));
-                    Q4(step(r)+1:step(r+1)) = rec(r).mDot4*(ha2-ha1)./(step(r+1)-step(r));
+                        Th_in=mean(T3m(step(r)+1:step(r+1)));
+                        if isnan(Th_in)
+                            disp(['count=',num2str(count)]);
+                        end
+                        mDot4_Rec = hex.mflu(comp.dp,comp.rho_p,comp.p_bed,Th_in,ABett,4);
+                        rec_d.Th_in = Th_in;
+                        rec_d.Tc_in = comp.Tout;
+                        rec_d.mDot4 = mDot4_Rec;
+                        rec_d.desing(comp.pout,20);
+                        rec(r).recalculate(rec_d,mDot4_Rec,Th_in,comp.Tout,comp.pout);
+                        ha1 = DryAir.h(comp.pout,rec(r).Tc_out);
+                        ha2 = DryAir.h(pSand(step(r)+1:step(r+1)),T3m(step(r)+1:step(r+1)));
+                        Q4(step(r)+1:step(r+1)) = rec(r).mDot4*(ha2-ha1)./(step(r+1)-step(r));
                     end 
                     obj(1).rec_object = rec;
                 end
@@ -434,7 +486,7 @@ classdef hex < handle
                 if obj(1).process_medium == "water"
                     Rho1 = hex.rho(P1,mean([h1in;h1out])); %für H2O
                 else
-                    Rho1 = 1./spec.v(P1,T1m); % für CO2
+                    Rho1 = 1./spec.v(P1,T1m); % für air
                 end
               
                 % termination condition
@@ -447,14 +499,11 @@ classdef hex < handle
            
                 % output information
                 if mod(count,10)==0
-
-
                     switch idx
                         case 1
                             disp(['count=',num2str(count),', err=',num2str(err(end)),' QDot=',num2str(QDot)]);
                             
-                        case 2
-                            disp(['count=',num2str(count),', err=',num2str(err(end)),' TH2Oout=',num2str(obj.T1(end))]);    
+
                     end
                 end
                 
@@ -551,7 +600,7 @@ classdef hex < handle
                 end
                 is2phase = spec.is2phase(Rho1,T1m);
                 % value = zeros(1,len);
-                % is2phase = value == 1;
+                % is2phase = vlue == 1;
                 alphainside = NaN(1,len); 
 
                 a = find(is2phase==0);
@@ -655,6 +704,9 @@ classdef hex < handle
                 eta_g(is2phase) = spec.my(rho_g(is2phase),T1m(is2phase));
                 eta(~is2phase) = spec.my(Rho1(~is2phase),T1m(~is2phase)); 
               
+                obj.x_Dot = xDot(end);
+                obj.cn = 1/obj.x_Dot;
+
                 A = D.^2.*pi/4; 
                 mDot = mdot1./(N.*A); %mass flow density
                 u = mDot./Rho1; %velocity
@@ -722,8 +774,8 @@ classdef hex < handle
                 grad_friction = Phi_LO(is2phase).*dp_dl(is2phase);
                 dp_friction = grad_friction .* lcell(is2phase); %friction pressure loss
 
-                % static pressure loss
-                % Zero at horizontal pipes
+           
+
 
                 %accelaration pressure loss
                 % eq (20)
@@ -733,6 +785,20 @@ classdef hex < handle
                 dif = [(int(2:end) - int(1:end-1)) 0];
                 dp_ac = mDot.^2.*lcell.*dif;
                 dp_ac(isnan(dp_ac))=0;
+
+                % static pressure loss
+                % Zero at horizontal tube
+                if obj.is_NU
+                    % phi_tube = 90;
+                    % grad_st = (rho_l.*(1-eps)+rho_g.*eps).*g.*sin(phi_tube);
+                    % dp_static = grad_st .* obj.h_bed;
+                    % dp_static(isnan(dp_static))=0;
+                    % dp_st = cumsum(dp_static);
+                    rhom = mean(obj.rho1);
+                    dp_st = rhom*g*obj.h_Tr;
+                else
+                    dp_st = 0;
+                end
 
                 %%% ADDITIONAL PRESSURE LOSS
                 %FDBR-Handbuch März 2017 
@@ -748,7 +814,7 @@ classdef hex < handle
                 
                 %Pipe bends
                 del = 180; %180° bend
-                rKR = D;
+                rKR = 1.5.*D;
                 xKR = rKR./D;
                 c1 = 9.3.*exp(-0.06.*xKR);
                 c2 = 0.0788.*tanh(0.8.*xKR) + 0.00124.*xKR;
@@ -764,7 +830,8 @@ classdef hex < handle
                 dp_add = zeros(1,len);
                 dp_add(1) = Zeta_s(1).*Rho1(1)./2.*u(1).^2;
                 dp_add(end) = Zeta_SD(end) .* Rho1(end)./2.*u(end).^2;
-       
+
+                obj.npass = obj.l/obj.w_channel;
                 %180° Pipebends
                 bend = round(len./sum([obj.npass]))-1; %ACHTUNG!!
                 for n=1:sum([obj.npass])-1
@@ -776,6 +843,7 @@ classdef hex < handle
                 deltap_i(is2phase) = dp_friction + dp_ac(is2phase);
                 deltap_i = deltap_i + dp_add;
                 deltap = cumsum(deltap_i);
+                deltap(end) = deltap(end)+dp_st;
                 
             end 
         end
@@ -812,9 +880,9 @@ classdef hex < handle
             if obj(1).process_medium == "water"
                 legend([p_1 p_3],{"water", 'sand'})
             elseif obj(1).process_medium == "air"
-                legend([p_1 p_3],{"water", 'air'})
+                legend([p_1 p_3],{"air", 'sand'})
             elseif obj(1).process_medium == "CO2"
-                legend([p_1 p_3],{"water", 'CO2'})
+                legend([p_1 p_3],{"CO2", 'sand'})
             end
         end
 
@@ -852,9 +920,9 @@ classdef hex < handle
             if obj(1).process_medium == "water"
                 legend([p_1 p_3],{"water", 'sand'})
             elseif obj(1).process_medium == "air"
-                legend([p_1 p_3],{"water", 'air'})
+                legend([p_1 p_3],{"air", 'sand'})
             elseif obj(1).process_medium == "CO2"
-                legend([p_1 p_3],{"water", 'CO2'})
+                legend([p_1 p_3],{"CO2", 'sand'})
             end
             
         end
@@ -882,6 +950,13 @@ classdef hex < handle
             uf = FluBed.wmf(dp,rhop,p,T);
             rho_air = DryAir.rho(p,T);
             mf = rho_air*uf*A*flu;
+        end
+
+        function [m_air, u_0, u_mf] = air_output(dp,rhop,p,T,A,flu)
+            u_mf = FluBed.wmf(dp,rhop,p,T);
+            rho_air = DryAir.rho(p,T);
+            u_0 = u_mf * flu;
+            m_air = rho_air*u_mf*A*flu;
         end
 
     end

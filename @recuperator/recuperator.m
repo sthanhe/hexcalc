@@ -8,18 +8,19 @@ classdef recuperator < handle
 
     properties
         %input
-        Th_in;
-        Tc_in;
-        mDot4;
-        eps %Epsilon (P) dimensionless temperature change
+        Th_in;                 % temperature of the hot exhaust air (K)
+        Tc_in;                 % temperature of the cold fluidisation air (K)                   
+        mDot4;                 % massflow of the fluidisation air (kg/s)
+        temp_diff_rec = 20 ;   %temperature difference between hot inlet and cold outlet (°C)   
+        % eps %Epsilon (P) dimensionless temperature change
 
         %output
-        Tc_out;
-        Th_out;
-        QDot;
-        kA;
-        NTU1;
-        NTU2;
+        Tc_out;                % temperature of the hot fluidisation air (K)
+        Th_out;                % temperature of the cold exhaust air (K)
+        QDot;                  % heat folw of the recuperator (W)
+        kA;                    % overall heat transfer coefficient multiplied with heat exchange surface (W/K)
+        NTU1;                  % dimensionless value NTU
+        NTU2;                  % dimensionless value NTU
     end
 
     methods
@@ -32,13 +33,38 @@ classdef recuperator < handle
             obj.mDot4 = mDot4;          
         end
 
-        function desing(obj,p,eps)
+        function desing(obj,p,temp_diff_rec)
             if nargin>2
-                obj.eps = eps;
+                obj.temp_diff_rec = temp_diff_rec;
             end
+
+            obj.Tc_out = obj.Th_in - obj.temp_diff_rec; %Grädigkeit
           
+            % if obj.Th_in > obj.Tc_in
             % obj.Tc_out = obj.eps*(obj.Th_in-obj.Tc_in)+obj.Tc_in; %Formel (10) VDI
-            obj.Tc_out = obj.Th_in - 20; %Grädigkeit
+            % else
+            %     % obj.Tc_out = obj.eps*(obj.Tc_in-obj.Th_in)-obj.Tc_in;
+            % end
+
+            if obj.Th_in - obj.Tc_in > 20
+                obj.Tc_out = obj.Th_in - 20; %Grädigkeit
+            % elseif obj.Th_in < obj.Tc_in
+            %     disp("Th_in < Tc_in")
+            elseif obj.Th_in - obj.Tc_in > 15
+                obj.Tc_out = obj.Th_in - 15;
+            elseif obj.Th_in - obj.Tc_in > 10
+                obj.Tc_out = obj.Th_in - 10;
+            elseif obj.Th_in - obj.Tc_in > 5
+                obj.Tc_out = obj.Th_in - 5;
+            elseif obj.Th_in - obj.Tc_in > 4
+                obj.Tc_out = obj.Th_in - 4;
+            elseif obj.Th_in - obj.Tc_in > 3
+                obj.Tc_out = obj.Th_in - 3;
+            elseif obj.Th_in - obj.Tc_in > 2
+                obj.Tc_out = obj.Th_in - 2;
+            elseif obj.Th_in - obj.Tc_in > 1
+                obj.Tc_out = obj.Th_in - 1;
+            end
             % p = 1.8*10^5;
 
             hh_in = DryAir.h(p,obj.Th_in);
@@ -110,7 +136,7 @@ classdef recuperator < handle
             %assumption
             % rec_r.Th_out = rec_r.Th_in-(rec_d.Th_in-rec_d.Th_out);
             % rec_r.Tc_out = rec_r.Tc_in+(rec_d.Tc_out-rec_d.Tc_in);
-            rec_r.Tc_out = rec_r.Th_in - 20 - 273.15; %Grädigkeit 25°C
+            rec_r.Tc_out = rec_r.Th_in - rec_d.temp_diff_rec; %Grädigkeit 25°C
             hc_in = DryAir.h(p,rec_r.Tc_in);
             hc_out = DryAir.h(p,rec_r.Tc_out);
             rec_r.QDot = abs(rec_r.mDot4*(hc_out-hc_in));
