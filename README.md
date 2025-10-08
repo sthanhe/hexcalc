@@ -1,5 +1,6 @@
 # hexcalc
 Original model by Stefan Thanheiser: https://orcid.org/0000-0003-2765-1156
+
 Adapted and extended by, and under the supervision of, Theresa Brunauer: https://orcid.org/0009-0007-8584-1093
 
 
@@ -11,4 +12,4 @@ The program is provided “as is”, without warranty of any kind, express or im
 
 
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.xxxx.svg)](https://zenodo.org/doi/10.5281/zenodo.xxxx)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17295229.svg)](https://zenodo.org/doi/10.5281/zenodo.17295229)

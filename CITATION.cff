@@ -14,7 +14,7 @@ authors:
     orcid: https://orcid.org/0009-0007-8584-1093
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.xxxx
+    value: 10.5281/zenodo.17295229
     description: DOI of newest version
 abstract: Repository for the cell model of a heat exchanger
 keywords:
